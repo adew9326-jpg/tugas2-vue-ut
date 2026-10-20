@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SITTA UT - Tracking Delivery Order (DO)</title>
+  <!-- Link CSS Desain SITTA UT -->
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Vue.js 2 Library dari CDN resmi -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.7.16/dist/vue.js"></script>
+</head>
+<body>
+
+  <!-- Navigasi Header SITTA UT -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="index.html" class="brand-wrapper">
+        <span class="brand-logo-badge">UT</span>
+        <div>
+          <div class="brand-title">SITTA UT</div>
+          <div class="brand-subtitle">Sistem Informasi Tiras & Transaksi Bahan Ajar</div>
+        </div>
+      </a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="index.html" class="nav-link">🏠 Beranda</a></li>
+          <li><a href="stok.html" class="nav-link">📦 Stok Bahan Ajar</a></li>
+          <li><a href="tracking.html" class="nav-link active">🚚 Tracking DO</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Container Aplikasi Vue.js Tracking DO -->
+  <main id="tracking-app" class="main-content">
+
+    <!-- Header Halaman -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">
+          <span>🚚</span> Tracking & Input Delivery Order (DO) Bahan Ajar
+        </h1>
+        <p class="page-description">
+          Layanan pelacakan ekspedisi dan registrasi order pengiriman bahan ajar Universitas Terbuka ke mahasiswa.
+        </p>
+      </div>
+      <div>
+        <span class="tag-badge" style="background:#003b73; color:#ffffff; font-size:0.85rem; padding:0.4rem 0.8rem;">
+          Total Pengiriman: <strong v-text="totalDORegistrasi"></strong> DO
+        </span>
+      </div>
+    </div>
+
+    <!-- Flash Message Notifikasi -->
+    <div v-if="flashMessage" :class="['alert', 'alert-' + flashType]">
+      <span v-text="flashMessage"></span>
+      <button class="btn btn-sm btn-outline" @click="flashMessage = ''">✕</button>
+    </div>
+
+    <!-- Grid 2 Kolom: Formulir Input DO Baru (Kiri) & Live Tracking Status (Kanan) -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(450px, 1fr)); gap:1.5rem; margin-bottom:1.5rem;">
+
+      <!-- ==================================================================
+           KOLOM 1: FORMULIR INPUT DELIVERY ORDER (DO) BARU
+           ================================================================== -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>📝</span> Registrasi Delivery Order (DO) Baru
+          </h2>
+          <span class="dependent-badge">Auto Generator DO</span>
+        </div>
+
+        <form @submit.prevent="simpanDOBaru">
+          <!-- 1. Nomor DO (Tergenerate Otomatis) -->
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label for="do-nomor">
+              Nomor DO (Tergenerate Otomatis):
+            </label>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <input
+                id="do-nomor"
+                type="text"
+                class="form-control"
+                :value="nextNomorDO"
+                disabled
+                style="background:#f8fafc; font-weight:700; color:var(--ut-blue-primary);"
+              >
+              <span class="tag-badge" style="background:#e0f2fe; color:#0284c7; white-space:nowrap;">
+                ✨ Auto No
+              </span>
+            </div>
+            <small class="text-muted">
+              Format: DO{Tahun Berjalan}-{3 Digit Sequence}. Contoh: {{ nextNomorDO }}
+            </small>
+          </div>
+
+          <!-- 2. NIM & Nama Mahasiswa (Input Manual Pengguna) -->
+          <div class="form-grid-2" style="margin-bottom:1rem;">
+            <div class="form-group">
+              <label for="do-nim">NIM Mahasiswa *</label>
+              <input
+                id="do-nim"
+                type="text"
+                maxlength="10"
+                class="form-control"
+                :class="{ 'field-error': errorsDO.nim }"
+                v-model="formDO.nim"
+                placeholder="Contoh: 041234567"
+              >
+              <div v-if="errorsDO.nim" class="invalid-feedback">{{ errorsDO.nim }}</div>
+            </div>
+
+            <div class="form-group">
+              <label for="do-nama">Nama Lengkap Mahasiswa *</label>
+              <input
+                id="do-nama"
+                type="text"
+                class="form-control"
+                :class="{ 'field-error': errorsDO.nama }"
+                v-model="formDO.nama"
+                placeholder="Contoh: Siti Aisyah"
+              >
+              <div v-if="errorsDO.nama" class="invalid-feedback">{{ errorsDO.nama }}</div>
+            </div>
+          </div>
+
+          <!-- 3. Ekspedisi (Dipilih Pengguna) -->
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label for="do-ekspedisi">Pilihan Ekspedisi Pengiriman *</label>
+            <select
+              id="do-ekspedisi"
+              class="form-select"
+              :class="{ 'field-error': errorsDO.ekspedisi }"
+              v-model="formDO.ekspedisi"
+            >
+              <option v-for="eks in pengirimanList" :key="eks.kode" :value="'JNE ' + eks.nama">
+                JNE {{ eks.nama }}
+              </option>
+            </select>
+            <div v-if="errorsDO.ekspedisi" class="invalid-feedback">{{ errorsDO.ekspedisi }}</div>
+          </div>
+
+          <!-- 4. Paket Bahan Ajar (<select> kode dan nama paket) -->
+          <div class="form-group" style="margin-bottom:0.75rem;">
+            <label for="do-paket">
+              Pilihan Paket Bahan Ajar *
+            </label>
+            <select
+              id="do-paket"
+              class="form-select"
+              :class="{ 'field-error': errorsDO.paketKode }"
+              v-model="formDO.paketKode"
+            >
+              <option value="">-- Silakan Pilih Paket Bahan Ajar --</option>
+              <option v-for="p in paket" :key="p.kode" :value="p.kode">
+                {{ p.kode }} &mdash; {{ p.nama }} ({{ formatRupiah(p.harga) }})
+              </option>
+            </select>
+            <div v-if="errorsDO.paketKode" class="invalid-feedback">{{ errorsDO.paketKode }}</div>
+
+            <!-- Detail Isi Paket (Muncul di bawah elemen <select> setelah paket dipilih) -->
+            <div class="package-preview-box" v-show="selectedPaketDetail">
+              <div style="font-weight:700; color:var(--ut-blue-primary); margin-bottom:0.25rem;">
+                📦 Rincian Isi {{ selectedPaketDetail ? selectedPaketDetail.nama : '' }}:
+              </div>
+              <div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.4rem;">
+                Buku Materi Pokok (BMP) yang termasuk dalam paket ini:
+              </div>
+              <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                <span
+                  class="tag-badge"
+                  style="background:#003b73; color:#ffffff;"
+                  v-for="buku in (selectedPaketDetail ? selectedPaketDetail.isi : [])"
+                  :key="buku"
+                >
+                  📖 {{ buku }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. Tanggal Kirim (Manual atau fungsi Date local time) & Total Harga -->
+          <div class="form-grid-2" style="margin-bottom:1.25rem;">
+            <div class="form-group">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <label for="do-tgl">Tanggal Kirim *</label>
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm"
+                  style="font-size:0.72rem; padding:0.1rem 0.4rem;"
+                  @click="isiTanggalHariIni"
+                  title="Gunakan fungsi Date local time"
+                >
+                  📅 Hari Ini
+                </button>
+              </div>
+              <input
+                id="do-tgl"
+                type="date"
+                class="form-control"
+                :class="{ 'field-error': errorsDO.tanggalKirim }"
+                v-model="formDO.tanggalKirim"
+              >
+              <div v-if="errorsDO.tanggalKirim" class="invalid-feedback">{{ errorsDO.tanggalKirim }}</div>
+            </div>
+
+            <!-- 6. Total Harga (Diambil dari array paket -> harga) -->
+            <div class="form-group">
+              <label>Total Harga Paket:</label>
+              <div
+                class="form-control"
+                style="background:#f1f5f9; font-weight:800; color:#15803d; font-size:1.05rem;"
+              >
+                {{ formatRupiah(formDO.totalHarga) }}
+              </div>
+              <small class="text-muted">Diambil otomatis dari data master paket.</small>
+            </div>
+          </div>
+
+          <!-- Tombol Aksi Form -->
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-color); padding-top:1rem;">
+            <button type="button" class="btn btn-secondary" @click="resetFormDO">
+              🔄 Reset Form
+            </button>
+            <button type="submit" class="btn btn-primary">
+              💾 Simpan &amp; Terbitkan DO
+            </button>
+          </div>
+
+          <!-- Log Informasi dari Watcher 1 -->
+          <div style="margin-top:0.75rem;">
+            <small class="text-muted" style="font-style:italic;" v-text="watcherLogDO"></small>
+          </div>
+        </form>
+      </section>
+
+      <!-- ==================================================================
+           KOLOM 2: FITUR PENCARIAN & TRACKING STATUS PENGIRIMAN DO
+           ================================================================== -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>🔎</span> Pelacakan Pengiriman Delivery Order
+          </h2>
+          <span class="tag-badge">Live Tracker</span>
+        </div>
+
+        <!-- Input Pencarian Nomor DO (Watcher 2 Live Lookup) -->
+        <div class="form-group" style="margin-bottom:1.25rem;">
+          <label for="cari-donomor">Masukkan / Pilih Nomor DO:</label>
+          <div style="display:flex; gap:0.5rem;">
+            <input
+              id="cari-donomor"
+              type="text"
+              class="form-control"
+              v-model="keywordCariDO"
+              placeholder="Ketik Nomor DO, misal: DO2025-001..."
+              style="text-transform:uppercase; font-weight:600;"
+            >
+            <button class="btn btn-primary" @click="lacakDO(keywordCariDO)">
+              Lacak
+            </button>
+          </div>
+        </div>
+
+        <!-- Kondisi 1: Data DO Ditemukan (v-if) -->
+        <div v-if="hasilCariDO" style="animation: fadeIn 0.3s ease;">
+          <div style="background:#f8fafc; border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.25rem;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.75rem;">
+              <div>
+                <span class="tag-badge" style="background:#003b73; color:#ffffff; font-size:0.9rem;">
+                  {{ hasilCariDO.noDO }}
+                </span>
+                <h3 style="font-size:1.15rem; color:var(--ut-blue-dark); margin-top:0.35rem;">
+                  {{ hasilCariDO.nama }}
+                </h3>
+                <div style="font-size:0.85rem; color:var(--text-secondary);">
+                  NIM: <strong>{{ hasilCariDO.nim }}</strong>
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <!-- Conditional Badge Status Pengiriman -->
+                <span
+                  class="status-badge"
+                  :class="{
+                    'safe': hasilCariDO.status === 'Terkirim' || hasilCariDO.status === 'Selesai',
+                    'warning': hasilCariDO.status === 'Dalam Perjalanan',
+                    'danger': hasilCariDO.status === 'Pemesanan Diproses'
+                  }"
+                >
+                  🚚 {{ hasilCariDO.status }}
+                </span>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.3rem;">
+                  Tgl Kirim: {{ hasilCariDO.tanggalKirim }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Detail Info Paket & Biaya -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.88rem; border-top:1px dashed var(--border-color); padding-top:0.75rem;">
+              <div>
+                <span class="text-muted">Ekspedisi:</span>
+                <div style="font-weight:600;">{{ hasilCariDO.ekspedisi }}</div>
+              </div>
+              <div>
+                <span class="text-muted">Paket Pesanan:</span>
+                <div style="font-weight:600;">{{ hasilCariDO.paket }} &bull; {{ hasilCariDO.paketNama || 'Paket Bahan Ajar' }}</div>
+              </div>
+              <div>
+                <span class="text-muted">Total Pembayaran:</span>
+                <div style="font-weight:700; color:#15803d;">{{ formatRupiah(hasilCariDO.total) }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stepper Timeline Riwayat Perjalanan DO -->
+          <h4 style="font-size:0.95rem; color:var(--ut-blue-dark); font-weight:700; margin-bottom:0.5rem;">
+            <span>📍</span> Riwayat Status Perjalanan Ekspedisi:
+          </h4>
+
+          <div class="stepper-timeline" v-if="hasilCariDO.perjalanan && hasilCariDO.perjalanan.length > 0">
+            <div
+              class="stepper-item"
+              v-for="(step, index) in hasilCariDO.perjalanan"
+              :key="index"
+              :class="{ 'current': index === hasilCariDO.perjalanan.length - 1 }"
+            >
+              <div class="stepper-node"></div>
+              <div class="stepper-time">{{ step.waktu }}</div>
+              <div class="stepper-desc">{{ step.keterangan }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kondisi 2: Nomor DO Tidak Ditemukan (v-else-if) -->
+        <div v-else-if="pesanErrorCari" class="alert alert-warning" style="margin-top:1rem;">
+          <div>
+            <div style="font-weight:700; margin-bottom:0.2rem;">⚠️ Nomor DO Tidak Ditemukan</div>
+            <div v-text="pesanErrorCari"></div>
+          </div>
+        </div>
+
+        <!-- Kondisi 3: Belum Mengetik Nomor DO (v-else) -->
+        <div v-else style="text-align:center; padding:2rem 1rem; color:var(--text-secondary);">
+          <div style="font-size:2rem; margin-bottom:0.5rem;">🚚</div>
+          <p>Ketik Nomor DO pada kotak di atas atau klik tombol <strong>"Lacak"</strong> pada tabel riwayat di bawah.</p>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ====================================================================
+         TABEL RIWAYAT SELURUH PENGIRIMAN DELIVERY ORDER (DO)
+         ==================================================================== -->
+    <div class="card" style="padding:0; overflow:hidden;">
+      <div class="card-header" style="padding:1rem 1.25rem; margin-bottom:0;">
+        <h3 class="card-title">
+          <span>📋</span> Riwayat Registrasi Delivery Order Bahan Ajar
+        </h3>
+        <span class="tag-badge">Database DO Lokal SITTA</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Nomor DO</th>
+              <th>NIM &amp; Nama Mahasiswa</th>
+              <th>Ekspedisi</th>
+              <th>Paket Bahan Ajar</th>
+              <th>Tanggal Kirim</th>
+              <th style="text-align:right;">Total Biaya</th>
+              <th style="text-align:center;">Status</th>
+              <th style="text-align:center;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in trackingArrayList" :key="item.noDO">
+              <!-- Nomor DO -->
+              <td>
+                <span class="tag-badge" style="background:#003b73; color:#ffffff; font-weight:700;">
+                  {{ item.noDO }}
+                </span>
+              </td>
+
+              <!-- NIM & Nama -->
+              <td>
+                <div style="font-weight:700; color:var(--ut-blue-dark);">{{ item.nama }}</div>
+                <small class="text-muted">NIM: {{ item.nim }}</small>
+              </td>
+
+              <!-- Ekspedisi -->
+              <td>
+                <span style="font-weight:600;">{{ item.ekspedisi }}</span>
+              </td>
+
+              <!-- Paket -->
+              <td>
+                <div>{{ item.paket }}</div>
+                <small class="text-muted">{{ item.paketNama || 'Paket Bahan Ajar' }}</small>
+              </td>
+
+              <!-- Tanggal Kirim -->
+              <td>{{ item.tanggalKirim }}</td>
+
+              <!-- Total Harga -->
+              <td style="text-align:right; font-weight:700; color:#15803d;">
+                {{ formatRupiah(item.total) }}
+              </td>
+
+              <!-- Status DO -->
+              <td style="text-align:center;">
+                <span
+                  class="status-badge"
+                  :class="{
+                    'safe': item.status === 'Terkirim' || item.status === 'Selesai',
+                    'warning': item.status === 'Dalam Perjalanan',
+                    'danger': item.status === 'Pemesanan Diproses'
+                  }"
+                >
+                  {{ item.status }}
+                </span>
+              </td>
+
+              <!-- Aksi Lacak -->
+              <td style="text-align:center;">
+                <button
+                  class="btn btn-primary btn-sm"
+                  @click="lacakDO(item.noDO)"
+                  title="Lihat detail status dan timeline pengiriman"
+                >
+                  🔍 Lacak
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer Aplikasi SITTA UT -->
+  <footer class="site-footer">
+    <div style="max-width:1240px; margin:0 auto;">
+      <p>
+        <strong>SITTA UT &bull; Sistem Informasi Tiras dan Transaksi Bahan Ajar</strong> &mdash; Universitas Terbuka
+      </p>
+      <p style="margin-top:0.35rem; color:var(--text-muted); font-size:0.8rem;">
+        Halaman 2: Tracking Delivery Order &bull; Vue.js Reactive Binding, Auto Number Generator, dan Watchers.
+      </p>
+    </div>
+  </footer>
+
+  <!-- 1. Script Dummy Data Acuan (dataBahanAjar.js) -->
+  <script src="js/dataBahanAjar.js"></script>
+  <!-- 2. Script Logika Vue untuk Halaman Tracking (tracking-app.js) -->
+  <script src="js/tracking-app.js"></script>
+</body>
+</html>

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SITTA UT - Portal Sistem Pemesanan & Distribusi Bahan Ajar</title>
+  <!-- Link CSS Desain SITTA UT -->
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .features-list {
+      list-style: none;
+      margin: 1rem 0;
+      padding: 0;
+    }
+    .features-list li {
+      padding: 0.45rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+    .features-list li::before {
+      content: "✔";
+      color: #10b981;
+      font-weight: bold;
+    }
+    .indicator-badge-box {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      margin-top: 2rem;
+    }
+    .indicator-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .indicator-item {
+      background: #f8fafc;
+      border-left: 4px solid var(--ut-blue-primary);
+      padding: 0.85rem;
+      border-radius: var(--radius-sm);
+    }
+    .indicator-item h4 {
+      font-size: 0.9rem;
+      color: var(--ut-blue-dark);
+      margin-bottom: 0.3rem;
+    }
+    .indicator-item p {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigasi Header SITTA UT -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="index.html" class="brand-wrapper">
+        <span class="brand-logo-badge">UT</span>
+        <div>
+          <div class="brand-title">SITTA UT</div>
+          <div class="brand-subtitle">Sistem Informasi Tiras & Transaksi Bahan Ajar</div>
+        </div>
+      </a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="index.html" class="nav-link active">🏠 Beranda</a></li>
+          <li><a href="stok.html" class="nav-link">📦 Stok Bahan Ajar</a></li>
+          <li><a href="tracking.html" class="nav-link">🚚 Tracking DO</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Konten Utama Portal Navigasi -->
+  <main class="main-content">
+
+    <!-- Hero Banner SITTA UT -->
+    <section class="portal-hero">
+      <span class="brand-logo-badge" style="display:inline-block; margin-bottom:1rem; font-size:1.4rem;">
+        UNIVERSITAS TERBUKA
+      </span>
+      <h1>Portal Layanan Bahan Ajar SITTA UT</h1>
+      <p>
+        Aplikasi Berbasis JavaScript Framework <strong>Vue.js</strong> untuk Manajemen Tiras Bahan Ajar,
+        Monitoring Stok Daerah, Registrasi Delivery Order (DO), dan Pelacakan Distribusi Bahan Ajar Mahasiswa.
+      </p>
+      <div style="margin-top:1.5rem; display:flex; justify-content:center; gap:1rem; flex-wrap:wrap;">
+        <a href="stok.html" class="btn btn-warning" style="font-weight:700; padding:0.75rem 1.4rem;">
+          📦 Buka Stok Bahan Ajar
+        </a>
+        <a href="tracking.html" class="btn btn-primary" style="background:#00254a; border:1px solid #ffffff; padding:0.75rem 1.4rem;">
+          🚚 Buka Tracking DO
+        </a>
+      </div>
+    </section>
+
+    <!-- Grid Navigasi Menu ke 2 Halaman Web Utama (WAJIB) -->
+    <div class="portal-nav-grid">
+
+      <!-- Kartu Menu 1: Stok Bahan Ajar -->
+      <a href="stok.html" class="portal-nav-card">
+        <div>
+          <div class="card-icon" style="background:#e0f2fe; color:#0284c7;">📦</div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>1. Stok Bahan Ajar</h3>
+            <span class="tag-badge" style="background:#dcfce7; color:#15803d;">WAJIB</span>
+          </div>
+          <p>
+            Modul pengawasan stok bahan ajar untuk seluruh UPBJJ UT Daerah dengan sistem status tiras otomatis
+            (Aman, Menipis, Kosong) dan peringatan re-order dini.
+          </p>
+          <ul class="features-list">
+            <li>Tabel data stok lengkap dengan lokasi rak & catatan HTML</li>
+            <li>Status visual otomatis: 🟢 Aman, ⚠️ Menipis, ⛔ Kosong</li>
+            <li>Filter dependent: Pilih UT Daerah baru muncul Kategori MK</li>
+            <li>Filter cepat Re-Order (Stok &lt; Safety Stock / Stok = 0)</li>
+            <li>Pengurutan data (Sort by Judul, Stok, Harga) tanpa recompute</li>
+            <li>Formulir tambah dan edit bahan ajar dengan validasi</li>
+            <li>Watcher otomatis pemantau status tiras kritis</li>
+          </ul>
+        </div>
+        <div class="portal-card-footer">
+          <span>Akses Halaman Stok Bahan Ajar</span>
+          <span>&rarr;</span>
+        </div>
+      </a>
+
+      <!-- Kartu Menu 2: Tracking Delivery Order (DO) -->
+      <a href="tracking.html" class="portal-nav-card">
+        <div>
+          <div class="card-icon" style="background:#fef3c7; color:#d97706;">🚚</div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>2. Tracking Delivery Order (DO)</h3>
+            <span class="tag-badge" style="background:#dcfce7; color:#15803d;">WAJIB</span>
+          </div>
+          <p>
+            Modul transaksi registrasi pesanan bahan ajar baru dan tracking riwayat ekspedisi pengiriman
+            Delivery Order (DO) mahasiswa secara terpadu.
+          </p>
+          <ul class="features-list">
+            <li>Nomor DO otomatis tergenerate: DO{Tahun}-{Sequence 3 Digit}</li>
+            <li>Input formulir pemesanan mahasiswa (NIM, Nama, Ekspedisi)</li>
+            <li>Pilihan paket bahan ajar dengan rincian buku dinamis</li>
+            <li>Sinkronisasi harga otomatis dari master data paket</li>
+            <li>Fitur Date lokal untuk pengisian tanggal kirim instan</li>
+            <li>Pelacakan real-time nomor DO (Live search watcher)</li>
+            <li>Visual Stepper Timeline riwayat perjalanan ekspedisi</li>
+          </ul>
+        </div>
+        <div class="portal-card-footer">
+          <span>Akses Halaman Tracking DO</span>
+          <span>&rarr;</span>
+        </div>
+      </a>
+
+    </div>
+
+    <!-- Ringkasan Pemenuhan 5 Indikator Capaian Tugas Praktik 2 -->
+    <div class="indicator-badge-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <h3 style="font-size:1.1rem; color:var(--ut-blue-dark); font-weight:700;">
+          🎯 Pemenuhan 5 Indikator Capaian Hasil Belajar (Tugas Praktik 2 Vue.js)
+        </h3>
+        <span class="tag-badge" style="background:#dcfce7; color:#15803d; font-weight:700;">
+          Status: 100% Terimplementasi Lengkap
+        </span>
+      </div>
+
+      <div class="indicator-grid">
+        <div class="indicator-item">
+          <h4>1. Struktur &amp; Organisasi Kode</h4>
+          <p>Pemisahan arsitektur folder bersih: <code>index.html</code>, <code>stok.html</code>, <code>tracking.html</code>, <code>css/style.css</code>, dan file JS terpisah.</p>
+        </div>
+        <div class="indicator-item">
+          <h4>2. Data Display &amp; Directives</h4>
+          <p>Penerapan mustaches <code>{{ }}</code>, <code>v-text</code>, <code>v-html</code> untuk format HTML catatan, serta <code>v-for</code> untuk list rendering.</p>
+        </div>
+        <div class="indicator-item">
+          <h4>3. Conditional Directives</h4>
+          <p>Implementasi <code>v-if</code>, <code>v-else-if</code>, <code>v-else</code> untuk status stok (Aman/Menipis/Kosong) &amp; <code>v-show</code> untuk filter dependent.</p>
+        </div>
+        <div class="indicator-item">
+          <h4>4. Binding, Computed &amp; Methods</h4>
+          <p>Two-way binding <code>v-model</code>, computed property dengan caching tanpa recompute, generator nomor DO, dan methods helper.</p>
+        </div>
+        <div class="indicator-item">
+          <h4>5. Watchers Berfungsi Penuh</h4>
+          <p>Lebih dari 2 watcher untuk deteksi perubahan UT Daerah, peringatan re-order tiras kritis, auto-sync harga paket, dan live tracking.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer Aplikasi SITTA UT -->
+  <footer class="site-footer">
+    <div style="max-width:1240px; margin:0 auto;">
+      <p>
+        <strong>SITTA UT &bull; Sistem Informasi Tiras dan Transaksi Bahan Ajar</strong> &mdash; Universitas Terbuka
+      </p>
+      <p style="margin-top:0.35rem; color:var(--text-muted); font-size:0.8rem;">
+        Referensi: Sufandi, U. U. (2022). <em>Analisis Kebutuhan dan Dokumentasi Sistem Informasi Tiras dan Transaksi Bahan Ajar Universitas Terbuka</em>. JANAPATI, 11(2).
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>

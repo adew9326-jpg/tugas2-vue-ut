@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SITTA UT - Stok Bahan Ajar</title>
+  <!-- Link CSS Desain SITTA UT -->
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Vue.js 2 Library dari CDN resmi -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.7.16/dist/vue.js"></script>
+</head>
+<body>
+
+  <!-- Navigasi Header SITTA UT -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="index.html" class="brand-wrapper">
+        <span class="brand-logo-badge">UT</span>
+        <div>
+          <div class="brand-title">SITTA UT</div>
+          <div class="brand-subtitle">Sistem Informasi Tiras & Transaksi Bahan Ajar</div>
+        </div>
+      </a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="index.html" class="nav-link">🏠 Beranda</a></li>
+          <li><a href="stok.html" class="nav-link active">📦 Stok Bahan Ajar</a></li>
+          <li><a href="tracking.html" class="nav-link">🚚 Tracking DO</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Container Aplikasi Vue.js -->
+  <main id="stok-app" class="main-content">
+
+    <!-- Header Halaman & Aksi Tambah -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">
+          <span>📦</span> Manajemen Stok Bahan Ajar UT Daerah
+        </h1>
+        <p class="page-description">
+          Monitoring persediaan tiras buku materi pokok (BMP) seluruh UT-Daerah secara real-time.
+        </p>
+      </div>
+      <div>
+        <button class="btn btn-primary" @click="bukaTambahModal">
+          <span>➕</span> Tambah Bahan Ajar Baru
+        </button>
+      </div>
+    </div>
+
+    <!-- Alert Notifikasi Reaktif dari Watcher 2 (Peringatan Reorder Dini) -->
+    <div class="alert alert-warning" v-show="watcherAlertVisible">
+      <div style="display:flex; align-items:center; gap:0.6rem;">
+        <span style="font-size:1.3rem;">📢</span>
+        <!-- Penggunaan Directive v-text untuk menampilkan data alert secara aman -->
+        <span v-text="watcherAlertMessage" style="font-weight:600;"></span>
+      </div>
+      <button class="btn btn-sm btn-outline" @click="hanyaPerluReorder = true" title="Tampilkan item kritis sekarang">
+        Filter Item Kritis
+      </button>
+    </div>
+
+    <!-- Flash Message Interaksi Pengguna -->
+    <div v-if="flashMessage" :class="['alert', 'alert-' + flashType]">
+      <span v-text="flashMessage"></span>
+      <button class="btn btn-sm btn-outline" @click="flashMessage = ''">✕</button>
+    </div>
+
+    <!-- Metric Dashboard Cards (Menggunakan Mustaches dan Computed Property) -->
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-icon blue">📚</div>
+        <div class="metric-info">
+          <h4>Total Judul Buku</h4>
+          <div class="metric-number">{{ totalJudul }}</div>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon green">📦</div>
+        <div class="metric-info">
+          <h4>Total Unit Fisik</h4>
+          <div class="metric-number">{{ totalUnitStok }}</div>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon yellow">🛡️</div>
+        <div class="metric-info">
+          <h4>Status Aman</h4>
+          <div class="metric-number">{{ totalStokAman }}</div>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon red">⚠️</div>
+        <div class="metric-info">
+          <h4>Perlu Re-Order</h4>
+          <div class="metric-number">{{ totalPerluReorder }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter & Sort Toolbar -->
+    <section class="filter-toolbar">
+      <div class="card-header" style="margin-bottom:0.75rem; padding-bottom:0.5rem;">
+        <h3 class="card-title" style="font-size:1rem;">
+          <span>🔍</span> Filter & Pengurutan Data Stok
+        </h3>
+        <!-- Catatan Caching Vue.js Computed Property -->
+        <span class="tag-badge" title="Computed properties di-cache otomatis oleh Vue.js">
+          ⚡ Computed Caching Aktif
+        </span>
+      </div>
+
+      <div class="filter-grid">
+        <!-- 1. Pencarian Teks Bebas -->
+        <div class="form-group">
+          <label for="filter-cari">Cari Kode / Judul:</label>
+          <input
+            id="filter-cari"
+            type="text"
+            class="form-control"
+            v-model="searchQuery"
+            placeholder="Ketik kode/judul buku..."
+          >
+        </div>
+
+        <!-- 2. Filter UT-Daerah (Pilihan Seluruh UT Daerah + Daftar upbjjList) -->
+        <div class="form-group">
+          <label for="filter-upbjj">UT-Daerah (UPBJJ):</label>
+          <select id="filter-upbjj" class="form-select" v-model="selectedUpbjj">
+            <option value="">-- Semua UT-Daerah --</option>
+            <option v-for="daerah in upbjjList" :key="daerah" :value="daerah">
+              UT {{ daerah }}
+            </option>
+          </select>
+        </div>
+
+        <!-- 3. Dependent Option: Kategori Mata Kuliah
+             Hanya muncul ketika memilih filter stok berdasarkan 'UT-daerah' -->
+        <div class="form-group" v-show="selectedUpbjj !== ''">
+          <label for="filter-kategori">
+            Kategori MK:
+            <span class="dependent-badge">Tergantung UT Daerah</span>
+          </label>
+          <select id="filter-kategori" class="form-select" v-model="selectedKategori">
+            <option value="">-- Semua Kategori di {{ selectedUpbjj }} --</option>
+            <option v-for="kat in kategoriTersediaDiUpbjj" :key="kat" :value="kat">
+              {{ kat }}
+            </option>
+          </select>
+        </div>
+
+        <!-- 4. Fitur Sort Data Stok (Judul, Stok, Harga) -->
+        <div class="form-group">
+          <label for="filter-sort">Urutkan Berdasarkan:</label>
+          <select id="filter-sort" class="form-select" v-model="sortBy">
+            <option value="judul-asc">Judul Buku (A → Z)</option>
+            <option value="judul-desc">Judul Buku (Z → A)</option>
+            <option value="qty-asc">Stok (Tersedikit → Terbanyak)</option>
+            <option value="qty-desc">Stok (Terbanyak → Tersedikit)</option>
+            <option value="harga-asc">Harga (Termurah → Termahal)</option>
+            <option value="harga-desc">Harga (Termahal → Termurah)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Baris Opsi Tambahan & Reset Filter -->
+      <div style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; border-top:1px dashed var(--border-color); padding-top:0.75rem;">
+        <!-- Checkbox Filter Re-order: stok < safety atau stok === 0 -->
+        <label class="checkbox-label" style="font-weight:600; color:#b45309;">
+          <input type="checkbox" v-model="hanyaPerluReorder">
+          <span>🚨 Tampilkan Hanya Stok Perlu Re-order (Stok &lt; Safety Stock atau Stok = 0)</span>
+        </label>
+
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <!-- Log dari Watcher 1 -->
+          <small class="text-muted" style="font-style:italic;" v-text="watcherFilterLog"></small>
+          <!-- Tombol Reset Filter -->
+          <button class="btn btn-secondary btn-sm" @click="resetFilter" title="Reset semua filter ke kondisi awal">
+            🔄 Reset Filter
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabel Daftar Stok Bahan Ajar -->
+    <div class="card" style="padding:0; overflow:hidden;">
+      <div style="padding:1rem 1.25rem; display:flex; justify-content:space-between; align-items:center; background:#ffffff; border-bottom:1px solid var(--border-color);">
+        <div style="font-weight:700; color:var(--ut-blue-dark);">
+          Menampilkan <span class="tag-badge">{{ filteredStok.length }}</span> dari {{ stok.length }} bahan ajar
+        </div>
+        <div style="font-size:0.85rem; color:var(--text-secondary);">
+          Standar Tiras UT: 🟢 Aman &bull; ⚠️ Menipis &bull; ⛔ Kosong
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Kode & Nama Mata Kuliah</th>
+              <th>Kategori MK</th>
+              <th>UT Daerah</th>
+              <th>Lokasi Rak</th>
+              <th style="text-align:right;">Harga</th>
+              <th style="text-align:center;">Jumlah Stok (qty)</th>
+              <th style="text-align:center;">Safety Stock</th>
+              <th style="text-align:center;">Status</th>
+              <th>Catatan Khusus</th>
+              <th style="text-align:center;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- List Rendering Menggunakan directive v-for -->
+            <tr
+              v-for="item in filteredStok"
+              :key="item.kode"
+              :class="{
+                'row-danger': item.qty === 0,
+                'row-warning': item.qty > 0 && item.qty < item.safety
+              }"
+            >
+              <!-- 1. Kode & Judul (Mustaches) -->
+              <td>
+                <div style="font-weight:700; color:var(--ut-blue-primary);">{{ item.kode }}</div>
+                <div style="font-size:0.85rem; color:var(--text-primary);">{{ item.judul }}</div>
+              </td>
+
+              <!-- 2. Kategori MK (Menggunakan Directive v-text) -->
+              <td>
+                <span class="tag-badge" v-text="item.kategori"></span>
+              </td>
+
+              <!-- 3. UT-Daerah (upbjj) -->
+              <td>
+                <span style="font-weight:600;">UT {{ item.upbjj }}</span>
+              </td>
+
+              <!-- 4. Lokasi Rak (lokasiRak) -->
+              <td>
+                <code style="background:#f1f5f9; padding:0.2rem 0.4rem; border-radius:4px; font-weight:700;">
+                  {{ item.lokasiRak }}
+                </code>
+              </td>
+
+              <!-- 5. Harga Satuan (Format Rupiah dengan method) -->
+              <td style="text-align:right; font-weight:600;">
+                {{ formatRupiah(item.harga) }}
+              </td>
+
+              <!-- 6. Jumlah Stok Bahan Ajar (qty) dengan Quick Adjuster -->
+              <td style="text-align:center;">
+                <div style="display:inline-flex; align-items:center; gap:0.35rem;">
+                  <button
+                    class="btn btn-outline btn-sm"
+                    style="padding:0.1rem 0.4rem; font-weight:800;"
+                    @click="quickAdjustQty(item, -1)"
+                    title="Kurangi stok 1"
+                  >-</button>
+                  <span style="font-size:1.05rem; font-weight:800; min-width:32px; display:inline-block;">
+                    {{ item.qty }}
+                  </span>
+                  <button
+                    class="btn btn-outline btn-sm"
+                    style="padding:0.1rem 0.4rem; font-weight:800;"
+                    @click="quickAdjustQty(item, 1)"
+                    title="Tambah stok 1"
+                  >+</button>
+                </div>
+              </td>
+
+              <!-- 7. Jumlah Stok Safety Bahan Ajar (safety) -->
+              <td style="text-align:center; color:var(--text-secondary); font-weight:600;">
+                {{ item.safety }}
+              </td>
+
+              <!-- 8. Status Stok (Penerapan Directive Conditional v-if / v-else-if / v-else) -->
+              <td style="text-align:center;">
+                <!-- Kondisi 1: Stok = 0 (Kosong - Bahaya / Merah) -->
+                <span v-if="item.qty === 0" class="status-badge danger">
+                  ⛔ Kosong
+                </span>
+                <!-- Kondisi 2: Stok < Safety Stock (Menipis - Warning / Oranye) -->
+                <span v-else-if="item.qty < item.safety" class="status-badge warning">
+                  ⚠️ Menipis
+                </span>
+                <!-- Kondisi 3: Stok >= Safety Stock (Aman - Simbol Aman / Hijau) -->
+                <span v-else class="status-badge safe">
+                  🟢 Aman
+                </span>
+              </td>
+
+              <!-- 9. Catatan (Penerapan Directive v-html untuk render formatting HTML em, strong, u, i) -->
+              <td>
+                <span v-html="item.catatanHTML"></span>
+              </td>
+
+              <!-- 10. Aksi Edit dan Hapus -->
+              <td style="text-align:center; white-space:nowrap;">
+                <button
+                  class="btn btn-secondary btn-sm"
+                  @click="bukaEditModal(item)"
+                  title="Edit data stok bahan ajar"
+                >
+                  ✏️ Edit
+                </button>
+                <button
+                  class="btn btn-outline btn-sm"
+                  style="color:#ef4444; border-color:#fca5a5;"
+                  @click="hapusBahanAjar(item)"
+                  title="Hapus bahan ajar"
+                >
+                  🗑️
+                </button>
+              </td>
+            </tr>
+
+            <!-- Kondisi jika tidak ada data hasil filter (v-if) -->
+            <tr v-if="filteredStok.length === 0">
+              <td colspan="10" style="text-align:center; padding:3rem 1rem; color:var(--text-secondary);">
+                <div style="font-size:2.5rem; margin-bottom:0.5rem;">📭</div>
+                <div style="font-weight:700; font-size:1.1rem; color:var(--ut-blue-dark);">
+                  Tidak Ada Data Bahan Ajar Ditemukan
+                </div>
+                <p style="margin-top:0.3rem;">
+                  Silakan sesuaikan kriteria pencarian atau klik tombol reset filter.
+                </p>
+                <button class="btn btn-primary btn-sm" style="margin-top:0.75rem;" @click="resetFilter">
+                  Reset Filter Sekarang
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         MODAL 1: FORMULIR TAMBAH DATA BAHAN AJAR BARU
+         Memenuhi kriteria: Formulir kecil & validasi sederhana setiap field
+         ==================================================================== -->
+    <div class="modal-backdrop" v-if="showTambahModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3><span>➕</span> Tambah Data Bahan Ajar Baru</h3>
+          <button class="modal-close-btn" @click="tutupTambahModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="simpanBahanAjarBaru">
+            <div class="form-grid-2">
+              <!-- Field Kode MK -->
+              <div class="form-group">
+                <label for="tambah-kode">Kode Mata Kuliah *</label>
+                <input
+                  id="tambah-kode"
+                  type="text"
+                  class="form-control"
+                  :class="{ 'field-error': errorsTambah.kode }"
+                  v-model="formTambah.kode"
+                  placeholder="Contoh: MKWU4101"
+                >
+                <div v-if="errorsTambah.kode" class="invalid-feedback">{{ errorsTambah.kode }}</div>
+              </div>
+
+              <!-- Field Judul MK -->
+              <div class="form-group">
+                <label for="tambah-judul">Nama / Judul Mata Kuliah *</label>
+                <input
+                  id="tambah-judul"
+                  type="text"
+                  class="form-control"
+                  :class="{ 'field-error': errorsTambah.judul }"
+                  v-model="formTambah.judul"
+                  placeholder="Contoh: Pendidikan Agama Islam"
+                >
+                <div v-if="errorsTambah.judul" class="invalid-feedback">{{ errorsTambah.judul }}</div>
+              </div>
+
+              <!-- Field Kategori MK -->
+              <div class="form-group">
+                <label for="tambah-kategori">Kategori Mata Kuliah *</label>
+                <select
+                  id="tambah-kategori"
+                  class="form-select"
+                  :class="{ 'field-error': errorsTambah.kategori }"
+                  v-model="formTambah.kategori"
+                >
+                  <option value="">-- Pilih Kategori --</option>
+                  <option v-for="kat in kategoriList" :key="kat" :value="kat">{{ kat }}</option>
+                </select>
+                <div v-if="errorsTambah.kategori" class="invalid-feedback">{{ errorsTambah.kategori }}</div>
+              </div>
+
+              <!-- Field UT Daerah -->
+              <div class="form-group">
+                <label for="tambah-upbjj">UT Daerah (UPBJJ) *</label>
+                <select
+                  id="tambah-upbjj"
+                  class="form-select"
+                  :class="{ 'field-error': errorsTambah.upbjj }"
+                  v-model="formTambah.upbjj"
+                >
+                  <option value="">-- Pilih UT Daerah --</option>
+                  <option v-for="daerah in upbjjList" :key="daerah" :value="daerah">UT {{ daerah }}</option>
+                </select>
+                <div v-if="errorsTambah.upbjj" class="invalid-feedback">{{ errorsTambah.upbjj }}</div>
+              </div>
+
+              <!-- Field Lokasi Rak -->
+              <div class="form-group">
+                <label for="tambah-rak">Lokasi Rak Penyimpanan *</label>
+                <input
+                  id="tambah-rak"
+                  type="text"
+                  class="form-control"
+                  :class="{ 'field-error': errorsTambah.lokasiRak }"
+                  v-model="formTambah.lokasiRak"
+                  placeholder="Contoh: R1-B2"
+                >
+                <div v-if="errorsTambah.lokasiRak" class="invalid-feedback">{{ errorsTambah.lokasiRak }}</div>
+              </div>
+
+              <!-- Field Harga Satuan -->
+              <div class="form-group">
+                <label for="tambah-harga">Harga Satuan (Rp) *</label>
+                <input
+                  id="tambah-harga"
+                  type="number"
+                  min="1000"
+                  step="500"
+                  class="form-control"
+                  :class="{ 'field-error': errorsTambah.harga }"
+                  v-model.number="formTambah.harga"
+                >
+                <div v-if="errorsTambah.harga" class="invalid-feedback">{{ errorsTambah.harga }}</div>
+              </div>
+
+              <!-- Field Qty Stok -->
+              <div class="form-group">
+                <label for="tambah-qty">Jumlah Stok (qty) *</label>
+                <input
+                  id="tambah-qty"
+                  type="number"
+                  min="0"
+                  class="form-control"
+                  :class="{ 'field-error': errorsTambah.qty }"
+                  v-model.number="formTambah.qty"
+                >
+                <div v-if="errorsTambah.qty" class="invalid-feedback">{{ errorsTambah.qty }}</div>
+              </div>
+
+              <!-- Field Safety Stock -->
+              <div class="form-group">
+                <label for="tambah-safety">Safety Stock Minimum *</label>
+                <input
+                  id="tambah-safety"
+                  type="number"
+                  min="0"
+                  class="form-control"
+                  :class="{ 'field-error': errorsTambah.safety }"
+                  v-model.number="formTambah.safety"
+                >
+                <!-- Pesan dinamis dari Watcher 3 jika safety > qty -->
+                <div v-if="errorsTambah.safety" class="invalid-feedback">{{ errorsTambah.safety }}</div>
+              </div>
+            </div>
+
+            <!-- Field Catatan HTML -->
+            <div class="form-group" style="margin-top:1rem;">
+              <label for="tambah-catatan">
+                Catatan Khusus (Mendukung tag HTML: &lt;em&gt;, &lt;strong&gt;, &lt;u&gt;, &lt;i&gt;)
+              </label>
+              <input
+                id="tambah-catatan"
+                type="text"
+                class="form-control"
+                v-model="formTambah.catatanHTML"
+                placeholder="Contoh: <strong>Edisi Revisi</strong>, cetak <u>Januari 2025</u>"
+              >
+              <small class="text-muted" style="margin-top:0.25rem; display:block;">
+                Preview HTML: <span v-html="formTambah.catatanHTML || '<em>(Belum ada catatan)</em>'"></span>
+              </small>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="tutupTambahModal">Batal</button>
+          <button class="btn btn-primary" @click="simpanBahanAjarBaru">💾 Simpan Bahan Ajar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         MODAL 2: FORMULIR EDIT DATA BAHAN AJAR
+         Memenuhi kriteria: Fitur untuk mengedit stok data bahan ajar
+         ==================================================================== -->
+    <div class="modal-backdrop" v-if="showEditModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3><span>✏️</span> Edit Bahan Ajar: {{ formEdit.kode }}</h3>
+          <button class="modal-close-btn" @click="tutupEditModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="simpanPerubahanEdit">
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>Kode Bahan Ajar (Readonly)</label>
+                <input type="text" class="form-control" :value="formEdit.kode" disabled style="background:#f1f5f9;">
+              </div>
+
+              <div class="form-group">
+                <label for="edit-judul">Nama / Judul Mata Kuliah *</label>
+                <input
+                  id="edit-judul"
+                  type="text"
+                  class="form-control"
+                  :class="{ 'field-error': errorsEdit.judul }"
+                  v-model="formEdit.judul"
+                >
+                <div v-if="errorsEdit.judul" class="invalid-feedback">{{ errorsEdit.judul }}</div>
+              </div>
+
+              <div class="form-group">
+                <label for="edit-kategori">Kategori Mata Kuliah *</label>
+                <select
+                  id="edit-kategori"
+                  class="form-select"
+                  :class="{ 'field-error': errorsEdit.kategori }"
+                  v-model="formEdit.kategori"
+                >
+                  <option v-for="kat in kategoriList" :key="kat" :value="kat">{{ kat }}</option>
+                </select>
+                <div v-if="errorsEdit.kategori" class="invalid-feedback">{{ errorsEdit.kategori }}</div>
+              </div>
+
+              <div class="form-group">
+                <label for="edit-upbjj">UT Daerah (UPBJJ) *</label>
+                <select
+                  id="edit-upbjj"
+                  class="form-select"
+                  :class="{ 'field-error': errorsEdit.upbjj }"
+                  v-model="formEdit.upbjj"
+                >
+                  <option v-for="daerah in upbjjList" :key="daerah" :value="daerah">UT {{ daerah }}</option>
+                </select>
+                <div v-if="errorsEdit.upbjj" class="invalid-feedback">{{ errorsEdit.upbjj }}</div>
+              </div>
+
+              <div class="form-group">
+                <label for="edit-rak">Lokasi Rak *</label>
+                <input
+                  id="edit-rak"
+                  type="text"
+                  class="form-control"
+                  :class="{ 'field-error': errorsEdit.lokasiRak }"
+                  v-model="formEdit.lokasiRak"
+                >
+                <div v-if="errorsEdit.lokasiRak" class="invalid-feedback">{{ errorsEdit.lokasiRak }}</div>
+              </div>
+
+              <div class="form-group">
+                <label for="edit-harga">Harga Satuan (Rp) *</label>
+                <input
+                  id="edit-harga"
+                  type="number"
+                  class="form-control"
+                  :class="{ 'field-error': errorsEdit.harga }"
+                  v-model.number="formEdit.harga"
+                >
+                <div v-if="errorsEdit.harga" class="invalid-feedback">{{ errorsEdit.harga }}</div>
+              </div>
+
+              <div class="form-group">
+                <label for="edit-qty">Jumlah Stok (qty) *</label>
+                <input
+                  id="edit-qty"
+                  type="number"
+                  min="0"
+                  class="form-control"
+                  :class="{ 'field-error': errorsEdit.qty }"
+                  v-model.number="formEdit.qty"
+                >
+                <div v-if="errorsEdit.qty" class="invalid-feedback">{{ errorsEdit.qty }}</div>
+              </div>
+
+              <div class="form-group">
+                <label for="edit-safety">Safety Stock *</label>
+                <input
+                  id="edit-safety"
+                  type="number"
+                  min="0"
+                  class="form-control"
+                  :class="{ 'field-error': errorsEdit.safety }"
+                  v-model.number="formEdit.safety"
+                >
+                <div v-if="errorsEdit.safety" class="invalid-feedback">{{ errorsEdit.safety }}</div>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top:1rem;">
+              <label for="edit-catatan">Catatan Khusus (Format HTML):</label>
+              <input
+                id="edit-catatan"
+                type="text"
+                class="form-control"
+                v-model="formEdit.catatanHTML"
+              >
+              <small class="text-muted" style="margin-top:0.25rem; display:block;">
+                Preview HTML: <span v-html="formEdit.catatanHTML"></span>
+              </small>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="tutupEditModal">Batal</button>
+          <button class="btn btn-primary" @click="simpanPerubahanEdit">💾 Simpan Perubahan</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer Aplikasi SITTA UT -->
+  <footer class="site-footer">
+    <div style="max-width:1240px; margin:0 auto;">
+      <p>
+        <strong>SITTA UT &bull; Sistem Informasi Tiras dan Transaksi Bahan Ajar</strong> &mdash; Universitas Terbuka
+      </p>
+      <p style="margin-top:0.35rem; color:var(--text-muted); font-size:0.8rem;">
+        Tugas Praktik 2: Implementasi Vue.js Framework untuk Pengorganisasian Kode, Directives, Caching Computed, dan Watchers.
+      </p>
+    </div>
+  </footer>
+
+  <!-- 1. Script Dummy Data Acuan (dataBahanAjar.js) -->
+  <script src="js/dataBahanAjar.js"></script>
+  <!-- 2. Script Logika Vue untuk Halaman Stok (stok-app.js) -->
+  <script src="js/stok-app.js"></script>
+</body>
+</html>
